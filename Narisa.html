@@ -3,81 +3,53 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>笑脸艺术</title>
+  <title>笑脸艺术 Lite：空出 NARISA</title>
   <style>
-    :root {
-      --bg: #0b0f14;
-      --fg: #f6f7fb;
-      --accent: #66e3ff;
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
     body {
-      background: radial-gradient(1000px 600px at 20% -10%, #14202b 0%, var(--bg) 60%),
-                  radial-gradient(800px 500px at 120% 110%, #101820 0%, var(--bg) 60%);
-      color: var(--fg);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      min-height: 100%;
+      margin: 0;
+      background: #0b0f14;
+      font-family: sans-serif;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
     header, footer {
-      padding: 14px 20px;
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px;
+      padding: 10px;
+      text-align: center;
     }
-    header h1 { font-size: clamp(18px, 2.5vw, 28px); margin: 0; letter-spacing: 2px; }
-    header h1 span { color: var(--accent); }
-    .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .btn {
-      appearance: none;
-      border: 1px solid #2a3a46;
-      background: #111923;
-      color: var(--fg);
-      padding: 8px 14px; border-radius: 999px; cursor: pointer; font-weight: 600;
-      box-shadow: 0 2px 10px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.04);
-      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+    #stage {
+      flex: 1;
+      position: relative;
     }
-    .btn:hover { transform: translateY(-1px); border-color: #3a5568; }
-
-   #stage {
-    width: 100%; height: 100%; position: relative; overflow: hidden;
-    border-top: 1px solid #0f1820; border-bottom: 1px solid #0f1820;
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
-    canvas { width: 100%; height: 100%; display: block; }
-    .hint { position: absolute; inset: auto 12px 12px auto; font-size: 12px; opacity: .7; }
-    footer { font-size: 12px; opacity: .7; justify-content: center; gap: 6px; }
-    .slider { display: flex; align-items: center; gap: 8px; font-size: 12px; opacity: .9; }
-    input[type="range"] { accent-color: var(--accent); }
-    .input {
-    background: #0f1820; color: var(--fg); border: 1px solid #253442; border-radius: 10px;
-    padding: 6px 10px; font-weight: 600; letter-spacing: .08em; width: 140px; text-align: center;
+    .controls {
+      margin-top: 6px;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>笑脸艺术</h1>
+    <h1>笑脸艺术 Lite · <span>NARISA</span></h1>
     <div class="controls">
-      <label class="slider">密度
-        <input id="density" type="range" min="18" max="60" value="34" />
-      </label>
-      <label class="slider">字号
-        <input id="fontSize" type="range" min="14" max="48" value="26" />
-      </label>
-      <input id="textInput" class="input" value="NARISA" maxlength="16" title="留空的名字" />
-      <button id="shuffle" class="btn">换个排布</button>
-      <button id="save" class="btn">保存 PNG</button>
+      密度 <input id="density" type="range" min="18" max="60" value="34" />
+      字号 <input id="fontSize" type="range" min="14" max="48" value="26" />
+      <input id="textInput" value="NARISA" maxlength="16" />
+      <button id="shuffle">换个排布</button>
+      <button id="save">保存 PNG</button>
     </div>
   </header>
 
   <div id="stage">
-    <canvas id="art" aria-label="Smiley Art"></canvas>
-    <div class="hint">提示：拖动滑块或编辑名字，自动重新生成</div>
+    <canvas id="art"></canvas>
   </div>
 
   <footer>
-    使用表情符号在画布上排布成背景，并以负空间排出名字。
+    本地 PNG 轻量版，不依赖外部字体/Emoji 库
   </footer>
 
   <script>
@@ -86,22 +58,23 @@
     const densityEl = document.getElementById('density');
     const fontSizeEl = document.getElementById('fontSize');
     const inputEl = document.getElementById('textInput');
-    const saveBtn = document.getElementById('save');
     const shuffleBtn = document.getElementById('shuffle');
+    const saveBtn = document.getElementById('save');
 
     let seed = Math.random() * 1e9;
+    const emojiFiles = ["smile1.png","smile2.png","smile3.png","smile4.png","smile5.png","smile6.png"];
+    const emojis = [];
+    let loaded = 0;
 
     function rand() {
-      // Simple LCG based on seed for reproducible jitter
       seed = (1664525 * seed + 1013904223) % 4294967296;
       return seed / 4294967296;
     }
 
     function resize() {
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      const { clientWidth: w, clientHeight: h } = canvas;
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.clientWidth * dpr;
+      canvas.height = canvas.clientHeight * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       draw();
     }
@@ -110,66 +83,30 @@
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       ctx.clearRect(0, 0, w, h);
-
-      // Background gradient
-      const g = ctx.createLinearGradient(0, 0, w, h);
-      g.addColorStop(0, '#0c141c');
-      g.addColorStop(1, '#0a0f15');
-      ctx.fillStyle = g;
+      ctx.fillStyle = "#0b0f14";
       ctx.fillRect(0, 0, w, h);
 
       const step = parseInt(densityEl.value, 10);
-      const emojiSize = parseInt(fontSizeEl.value, 10);
-      const emojis = ['🙂','😊','😏','😁','😄','😃','😀','☺️'];
+      const size = parseInt(fontSizeEl.value, 10);
 
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `bold ${emojiSize}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji", system-ui`;
-
-      // Draw emoji grid with slight jitter and subtle opacity variance
-      for (let y = step * 0.8; y < h; y += step) {
-        for (let x = step * 0.8; x < w; x += step) {
-          const jx = (rand() - 0.5) * Math.min(6, step * 0.18);
-          const jy = (rand() - 0.5) * Math.min(6, step * 0.18);
-          const e = emojis[Math.floor(rand() * emojis.length)];
-          const alpha = 0.75 + rand() * 0.25;
-          ctx.globalAlpha = alpha;
-          ctx.fillText(e, x + jx, y + jy);
+      for (let y = step; y < h; y += step) {
+        for (let x = step; x < w; x += step) {
+          const jx = (rand() - 0.5) * step * 0.2;
+          const jy = (rand() - 0.5) * step * 0.2;
+          const img = emojis[Math.floor(rand() * emojis.length)];
+          ctx.globalAlpha = 0.75 + rand() * 0.25;
+          ctx.drawImage(img, x + jx - size/2, y + jy - size/2, size, size);
         }
       }
       ctx.globalAlpha = 1;
 
-      // Cut out text using negative space
-      const text = (inputEl.value || 'NARISA').toUpperCase();
-      const maxWidth = w * 0.8;
-      // Fit text to width responsively
-      let fontPx = Math.min(h * 0.28, w * 0.25);
+      const text = (inputEl.value || "NARISA").toUpperCase();
       ctx.save();
-      ctx.globalCompositeOperation = 'destination-out';
-      do {
-        ctx.font = `900 ${fontPx}px Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
-        if (ctx.measureText(text).width > maxWidth) fontPx -= 4; else break;
-      } while (fontPx > 10);
-
-      const metrics = ctx.measureText(text);
-      const textX = (w - metrics.width) / 2;
-      const textY = h / 2 + (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 3;
-
-      // Crisp shadow rim around the knockout to enhance readability
-      ctx.shadowColor = 'rgba(0,0,0,.75)';
-      ctx.shadowBlur = 18;
-      ctx.fillStyle = '#fff';
-      ctx.fillText(text, w / 2, textY);
-      ctx.restore();
-
-      // Add subtle outline stroke around the negative space using overlay blend
-      ctx.save();
-      ctx.globalCompositeOperation = 'overlay';
-      ctx.lineWidth = Math.max(2, fontPx * 0.02);
-      ctx.strokeStyle = 'rgba(102, 227, 255, 0.35)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.strokeText(text, w / 2, textY);
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.font = `900 ${Math.min(w*0.25,h*0.28)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, w/2, h/2);
       ctx.restore();
     }
 
@@ -180,17 +117,29 @@
       link.click();
     }
 
-    // Events
     window.addEventListener('resize', resize);
     densityEl.addEventListener('input', draw);
     fontSizeEl.addEventListener('input', draw);
     inputEl.addEventListener('input', draw);
-    saveBtn.addEventListener('click', savePNG);
     shuffleBtn.addEventListener('click', () => { seed = Math.random() * 1e9; draw(); });
+    saveBtn.addEventListener('click', savePNG);
 
-    // Kick off
-    resize();
+    // 加载 PNG
+    emojiFiles.forEach(file => {
+      const img = new Image();
+      img.src = "emoji/" + file;
+      img.onload = () => {
+        loaded++;
+        if (loaded === emojiFiles.length) {
+          emojis.push(...emojiFiles.map(f => {
+            const i = new Image();
+            i.src = "emoji/" + f;
+            return i;
+          }));
+          resize();
+        }
+      };
+    });
   </script>
 </body>
 </html>
-
